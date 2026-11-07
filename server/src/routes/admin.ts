@@ -106,3 +106,77 @@ adminRouter.post('/system/withdrawal-suspend', requireOwner, async (req, res, ne
     next(err);
   }
 });
+
+// ========== System Settings (Owner only for write) ==========
+
+adminRouter.get('/settings', requireRole('OWNER', 'SUPPORT'), async (req, res, next) => {
+  try {
+    let config = await prisma.systemConfig.findUnique({ where: { id: 'global' } });
+    if (!config) {
+      config = await prisma.systemConfig.create({
+        data: { id: 'global', appName: 'Velmora' },
+      });
+    }
+    res.json({
+      appName: config.appName,
+      withdrawalEnabled: config.withdrawalEnabled,
+      dailyWithdrawalLimitUsd: config.dailyWithdrawalLimitUsd,
+      minWithdrawal: config.minWithdrawal,
+      feeBps: config.feeBps,
+      treasuryAddress: config.treasuryAddress || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+adminRouter.patch('/settings', requireOwner, async (req, res, next) => {
+  try {
+    const { appName, withdrawalEnabled, dailyWithdrawalLimitUsd, minWithdrawal, feeBps, treasuryAddress } = req.body;
+
+    if (appName !== undefined) {
+      if (typeof appName !== 'string' || appName.trim().length < 2 || appName.trim().length > 40) {
+        return res.status(400).json({ error: 'App name must be between 2 and 40 characters' });
+      }
+    }
+
+    const data: any = { updatedBy: req.user!.id };
+    if (appName !== undefined) data.appName = appName.trim();
+    if (typeof withdrawalEnabled === 'boolean') data.withdrawalEnabled = withdrawalEnabled;
+    if (dailyWithdrawalLimitUsd !== undefined) data.dailyWithdrawalLimitUsd = String(dailyWithdrawalLimitUsd);
+    if (minWithdrawal !== undefined) data.minWithdrawal = String(minWithdrawal);
+    if (feeBps !== undefined) data.feeBps = Number(feeBps);
+    if (treasuryAddress !== undefined) {
+      data.treasuryAddress = treasuryAddress === '' || treasuryAddress === null
+        ? null
+        : String(treasuryAddress).trim();
+    }
+
+    const config = await prisma.systemConfig.upsert({
+      where: { id: 'global' },
+      create: { id: 'global', ...data, appName: data.appName || 'Velmora' },
+      update: data,
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        actorId: req.user!.id,
+        actorEmail: req.user!.email,
+        action: 'SETTINGS_UPDATED',
+        resource: 'SystemConfig',
+        details: JSON.stringify(data),
+      },
+    });
+
+    res.json({
+      appName: config.appName,
+      withdrawalEnabled: config.withdrawalEnabled,
+      dailyWithdrawalLimitUsd: config.dailyWithdrawalLimitUsd,
+      minWithdrawal: config.minWithdrawal,
+      feeBps: config.feeBps,
+      treasuryAddress: config.treasuryAddress || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});

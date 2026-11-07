@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   History,
+  Ticket,
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,7 @@ const items = [
   { to: '/dashboard', icon: LayoutDashboard, label: 'Home' },
   { to: '/send', icon: ArrowUpRight, label: 'Send' },
   { to: '/receive', icon: ArrowDownLeft, label: 'Receive' },
+  { to: '/redeem', icon: Ticket, label: 'Redeem' },
   { to: '/history', icon: History, label: 'History' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];

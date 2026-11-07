@@ -1,129 +1,124 @@
-# VELMORA — Hybrid Crypto Wallet Platform
+# VELMORA — Split Architecture (Ready for Render)
 
-Premium hybrid cryptocurrency wallet supporting both **self-custody (connected / local)** wallets and **custodial wallets** powered by Xellar Custodian API.
-
-> **Rebranded from Claimora to Velmora.** All branding, storage keys, colors, and references have been updated.
-
-## Architecture Overview
+Premium hybrid crypto wallet platform split into **3 independent apps**:
 
 ```
 velmora/
-├── client/          # React + Vite + TypeScript frontend (upgraded from original)
-├── server/          # Node.js + Express + Prisma backend (new)
-└── docs/            # API docs, security checklist, Xellar setup, deployment
+├── server/            → Backend API (Express + Prisma)
+├── client/            → User Frontend (customer wallet app)
+├── admin-frontend/    → Admin Frontend (Owner / Support dashboard)
+└── docs/
 ```
 
-### Wallet Model (Hybrid)
+---
 
-**A. Connected / Self-custody wallets**
-- Local encrypted HD wallet (BIP-39 + ethers.js) — keys never leave the device
-- MetaMask / WalletConnect-compatible external wallets
-- User signs every transaction in their own wallet
-- Never request or store recovery phrases or private keys on the server
+## 1. Backend (`server/`)
 
-**B. Velmora Custodial wallets**
-- Integrated with **Xellar Custodian / Embedded Wallets API**
-- Backend creates and manages customer wallet accounts
-- Internal double-entry ledger for balances, pending, reserved, completed
-- Deposits, withdrawals, history controlled by backend
-- Xellar credentials and signing keys live **only** on the server
+- Express + Prisma + JWT auth
+- Roles: USER / SUPPORT / OWNER
+- Wallets, ledger, transactions, audit log
+- Xellar custodial scaffold
+- Port: 4000 (local)
 
-## Security Priorities (Implemented / Scaffolded)
+## 2. User Frontend (`client/`)
 
-- Password hashing (bcrypt)
-- JWT sessions + secure cookies
-- Role-based access control (Owner / Support)
-- Server-side validation on every financial action
-- Environment-variable secrets only
-- Withdrawal limits, reservation, dual approval path for Owner
-- Idempotent webhooks / duplicate protection
-- Audit log for sensitive actions
-- Rate limiting
-- Emergency suspension flag
-- Daily reconciliation hooks (provider vs internal ledger)
-- Never expose Xellar secrets or private keys to frontend
-- Never allow ordinary admin to move customer funds or edit balances
+- Original Velmora self-custody wallet (create / import / unlock / send / receive)
+- Will later connect to the API for custodial + connected wallets
+- Port: 5173 (local)
 
-**One Owner only** — configured via environment variable `OWNER_EMAIL` + initial secure bootstrap. No public registration for Owner/Super Admin.
+## 3. Admin Frontend (`admin-frontend/`)
 
-## Getting Started (Development)
+- Separate secure dashboard
+- Login restricted to OWNER and SUPPORT
+- Pages: Dashboard, Users, Transactions, Audit Log
+- Owner can suspend users; Support is read-mostly
+- Port: 5174 (local)
 
-### Prerequisites
-- Node.js 20+
-- PostgreSQL (recommended for production) or SQLite for local
-- Xellar Dashboard account + App ID / Client Secret (for custodial features)
+---
 
-### 1. Client
+## Deploy on Render (Recommended)
+
+You will create **3 services** (or 4 if you add Postgres):
+
+### A. PostgreSQL Database
+1. New → PostgreSQL
+2. Copy the **Internal Database URL**
+
+### B. Backend API
+1. New → Web Service
+2. Connect your GitHub repo
+3. **Root Directory**: `server`
+4. **Build Command**: `npm install && npx prisma generate`
+5. **Start Command**: `npx prisma db push && npm run start`
+6. Environment Variables:
+   ```
+   NODE_ENV=production
+   DATABASE_URL=   ← paste Internal Database URL
+   JWT_SECRET=     ← long random string
+   CLIENT_ORIGIN=https://your-user-frontend.onrender.com
+   ADMIN_ORIGIN=https://your-admin-frontend.onrender.com
+   OWNER_EMAIL=your@email.com
+   ```
+7. Generate a public URL (e.g. `https://velmora-api.onrender.com`)
+
+### C. User Frontend
+1. New → Static Site (or Web Service)
+2. **Root Directory**: `client`
+3. **Build Command**: `npm install && npm run build`
+4. **Publish Directory**: `dist`
+5. Environment Variable:
+   ```
+   VITE_API_URL=https://velmora-api.onrender.com
+   ```
+
+### D. Admin Frontend
+1. New → Static Site
+2. **Root Directory**: `admin-frontend`
+3. **Build Command**: `npm install && npm run build`
+4. **Publish Directory**: `dist`
+5. Environment Variable:
+   ```
+   VITE_API_URL=https://velmora-api.onrender.com
+   ```
+
+---
+
+## Local Development
 
 ```bash
-cd client
-npm install
-npm run dev
-```
-
-Open http://localhost:5173
-
-### 2. Server
-
-```bash
+# Terminal 1 – Backend
 cd server
-cp .env.example .env
-# Edit .env with secrets, OWNER_EMAIL, Xellar keys, DATABASE_URL
+cp .env.example .env   # fill values
 npm install
 npx prisma generate
-npx prisma db push   # or migrate
+npx prisma db push
 npm run dev
+
+# Terminal 2 – User Frontend
+cd client
+npm install
+npm run dev            # http://localhost:5173
+
+# Terminal 3 – Admin Frontend
+cd admin-frontend
+npm install
+npm run dev            # http://localhost:5174
 ```
 
-Server runs on http://localhost:4000
+---
 
-### Environment Variables (see server/.env.example)
+## Important Notes
 
-Critical ones:
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `OWNER_EMAIL` / `OWNER_PASSWORD_HASH` (or bootstrap script)
-- `XELLAR_APP_ID` / `XELLAR_CLIENT_SECRET` / `XELLAR_ENV=sandbox`
-- `WALLETCONNECT_PROJECT_ID` (for external wallet connection)
-- Rate limits, withdrawal daily limits, etc.
+- Free Render web services **sleep after 15 minutes** of inactivity.
+- For production money, upgrade to a paid instance so the API stays awake.
+- Never put Xellar secrets or JWT_SECRET in the frontend.
+- Only the Owner account (created via env) has full control.
 
-## Xellar Integration
+---
 
-See `docs/XELLAR_INTEGRATION.md`.
+## Next Steps After Deploy
 
-The service layer is implemented. Without valid credentials the custodial endpoints return clear configuration errors. Never hard-code secrets.
-
-## Admin Dashboard
-
-Accessible at `/admin` (protected).
-
-- Exactly one Owner (full control)
-- Support staff role: view customers, investigate complaints, respond to tickets — **cannot** approve withdrawals, edit balances, change fees, or access secrets.
-
-## Financial Ledger
-
-Double-entry style internal accounting:
-- Available / Pending / Reserved balances
-- Unique transaction references
-- Immutable transaction records
-- Webhook / confirmation-driven credit only
-- Withdrawal reservation before broadcast
-
-## Status & Next Steps
-
-- [x] Rebrand to Velmora (all UI, storage, package)
-- [x] Preserve original self-custody create / import / unlock / send / receive / balance
-- [x] Professional dark banking UI (Claimora design language retained & improved)
-- [ ] Full user auth + registration
-- [ ] MetaMask + WalletConnect connection
-- [ ] Xellar custodial wallet creation & balance sync
-- [ ] Double-entry ledger + withdrawal flow
-- [ ] Owner admin dashboard
-- [ ] MFA, audit logs, reconciliation jobs
-- [ ] Production hardening & regulatory review
-
-**Important**: Do not put real customer funds or production Xellar keys into this codebase until security review, penetration testing, and provider approval are complete.
-
-## License
-
-MIT (original) — production financial use requires additional legal & compliance work.
+1. Create the first Owner user (seed script or direct DB insert).
+2. Point both frontends to the live API URL.
+3. Test login on Admin panel with Owner credentials.
+4. Wire live Xellar credentials when ready.

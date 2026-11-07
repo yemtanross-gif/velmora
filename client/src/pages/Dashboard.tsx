@@ -9,6 +9,8 @@ import {
   Check,
   RefreshCw,
   ExternalLink,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -17,6 +19,7 @@ import { getBalance, getCurrentNetworkId } from '@/services/wallet';
 import { getNetwork } from '@/lib/networks';
 import { formatBalance, shortenAddress, copyToClipboard, formatFiat } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { loadExtraWallets, fetchBalances, removeExtraWallet, type ExtraWallet } from '@/lib/extraWallets';
 
 const quickActions = [
   { to: '/send', icon: ArrowUpRight, label: 'Send', color: 'bg-blue-500/15 text-blue-400' },
@@ -29,6 +32,8 @@ export function Dashboard() {
   const { address, balance, isLoadingBalance, setBalance, setLoadingBalance, networkId } =
     useWalletStore();
   const [copied, setCopied] = useState(false);
+  const [extraWallets, setExtraWallets] = useState<ExtraWallet[]>([]);
+  const [extraBalances, setExtraBalances] = useState<Record<string, string>>({});
   const network = getNetwork(networkId || getCurrentNetworkId());
 
   const refreshBalance = async () => {
@@ -44,10 +49,24 @@ export function Dashboard() {
     }
   };
 
+  const refreshExtras = async () => {
+    const list = loadExtraWallets();
+    setExtraWallets(list);
+    if (list.length) {
+      const bals = await fetchBalances(list, networkId);
+      setExtraBalances(bals);
+    } else {
+      setExtraBalances({});
+    }
+  };
+
   useEffect(() => {
     refreshBalance();
-    // Optional: poll every 30s
-    const interval = setInterval(refreshBalance, 30000);
+    refreshExtras();
+    const interval = setInterval(() => {
+      refreshBalance();
+      refreshExtras();
+    }, 30000);
     return () => clearInterval(interval);
   }, [address, networkId]);
 
@@ -157,6 +176,60 @@ export function Dashboard() {
             </div>
           </div>
         </Card>
+      </div>
+
+
+      {/* Linked / watch wallets — real on-chain balances */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Other wallets</h2>
+          <Link
+            to="/add-wallet"
+            className="text-sm text-velmora-400 hover:text-velmora-300 inline-flex items-center gap-1"
+          >
+            <Plus className="w-4 h-4" />
+            Add wallet
+          </Link>
+        </div>
+        {extraWallets.length === 0 ? (
+          <Card>
+            <p className="text-sm text-gray-500 text-center py-4">
+              Add an existing address or MetaMask to track real balances.{' '}
+              <Link to="/add-wallet" className="text-velmora-400">
+                Add wallet
+              </Link>
+            </p>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {extraWallets.map((w) => (
+              <Card key={w.id} className="flex items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium truncate">{w.label}</p>
+                  <p className="text-xs text-gray-500 font-mono truncate">{w.address}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 capitalize">{w.type} · live chain balance</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-medium">
+                    {formatBalance(extraBalances[w.id] ?? '…', 6)} {network.nativeCurrency.symbol}
+                  </p>
+                  <button
+                    type="button"
+                    className="text-xs text-red-400/80 hover:text-red-400 inline-flex items-center gap-1 mt-1"
+                    onClick={() => {
+                      removeExtraWallet(w.id);
+                      setExtraWallets(loadExtraWallets());
+                      toast.success('Removed');
+                    }}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Remove
+                  </button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Recent activity placeholder */}

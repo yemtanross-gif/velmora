@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   History,
+  Ticket,
   Settings,
   Repeat,
   CreditCard,
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/receive', icon: ArrowDownLeft, label: 'Receive' },
   { to: '/swap', icon: Repeat, label: 'Swap' },
   { to: '/buy', icon: CreditCard, label: 'Buy' },
+  { to: '/redeem', icon: Ticket, label: 'Redeem' },
   { to: '/history', icon: History, label: 'History' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];

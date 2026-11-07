@@ -7,6 +7,8 @@ import { authRouter } from './routes/auth.js';
 import { walletRouter } from './routes/wallets.js';
 import { adminRouter } from './routes/admin.js';
 import { webhookRouter } from './routes/webhooks.js';
+import { publicRouter } from './routes/public.js';
+import { redeemRouter } from './routes/redeem.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import { requireAuth } from './middleware/auth.js';
 
@@ -32,8 +34,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'velmora-api', time: new Date().toISOString() });
 });
 
+app.use('/api/public', publicRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/wallets', requireAuth, walletRouter);
+app.use('/api/redeem', redeemRouter);
 app.use('/api/admin', requireAuth, adminRouter);
 app.use('/api/webhooks', webhookRouter); // signature verified inside
 

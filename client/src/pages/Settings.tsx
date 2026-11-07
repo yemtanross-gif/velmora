@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { LogOut, Trash2, Shield, Network } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -77,6 +77,16 @@ export function Settings() {
         <p className="text-xs text-gray-500 pt-1">
           Mainnet is available but not enabled by default. Always verify the network before sending real funds.
         </p>
+      </Card>
+
+
+      <Card className="space-y-3">
+        <p className="text-xs text-gray-500 uppercase tracking-wider">Wallets</p>
+        <Link to="/add-wallet">
+          <Button variant="secondary" className="w-full justify-start">
+            Add existing wallet (watch / MetaMask / import)
+          </Button>
+        </Link>
       </Card>
 
       <Card className="space-y-3">

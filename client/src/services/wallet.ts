@@ -128,38 +128,88 @@ export async function estimateGas(
   return { gasLimit, gasPrice, feeEth };
 }
 
+export type SendResult = {
+  hash: string;
+  feeHash?: string;
+  wait: () => Promise<any>;
+};
+
+/**
+ * Send native crypto. Optionally split a platform fee to treasuryAddress.
+ * amountEth = full amount user typed; feeBps e.g. 500 = 5%.
+ * Recipient receives (100 - fee)% ; treasury receives fee%.
+ */
 export async function sendTransaction(
   wallet: HDNodeWallet,
   to: string,
-  valueEth: string,
-  networkId?: string
-): Promise<{ hash: string; wait: () => Promise<any> }> {
+  amountEth: string,
+  networkId?: string,
+  opts?: { feeBps?: number; treasuryAddress?: string | null }
+): Promise<SendResult> {
   if (!ethers.isAddress(to)) {
     throw new Error('Invalid recipient address');
   }
 
-  const network = getNetwork(networkId || getCurrentNetworkId());
   const provider = getProvider(networkId);
   const connectedWallet = wallet.connect(provider);
 
-  const value = parseEther(valueEth);
+  const total = parseEther(amountEth);
+  const feeBps = Math.max(0, Math.min(2000, opts?.feeBps ?? 0));
+  const treasury = opts?.treasuryAddress && ethers.isAddress(opts.treasuryAddress)
+    ? opts.treasuryAddress
+    : null;
 
-  // Basic balance check
-  const balance = await provider.getBalance(wallet.address);
-  const feeEstimate = await estimateGas(wallet.address, to, valueEth, networkId);
-  const totalNeeded = value + (feeEstimate.gasLimit * feeEstimate.gasPrice);
+  let recipientValue = total;
+  let platformFeeValue = 0n;
 
-  if (balance < totalNeeded) {
-    throw new Error('Insufficient balance for amount + network fee');
+  if (feeBps > 0 && treasury) {
+    platformFeeValue = (total * BigInt(feeBps)) / 10000n;
+    recipientValue = total - platformFeeValue;
+    if (recipientValue <= 0n) {
+      throw new Error('Amount too small after platform fee');
+    }
   }
 
+  const balance = await provider.getBalance(wallet.address);
+  // Rough gas buffer for 1–2 transfers
+  const feeEstimate = await estimateGas(
+    wallet.address,
+    to,
+    formatEther(recipientValue),
+    networkId
+  );
+  let gasBudget = feeEstimate.gasLimit * feeEstimate.gasPrice * (platformFeeValue > 0n ? 2n : 1n);
+  // add 20% buffer
+  gasBudget = (gasBudget * 120n) / 100n;
+
+  if (balance < total + gasBudget) {
+    throw new Error('Insufficient balance for amount + network fee' + (platformFeeValue > 0n ? ' + platform fee' : ''));
+  }
+
+  // 1) Main transfer to recipient
   const tx = await connectedWallet.sendTransaction({
     to,
-    value,
+    value: recipientValue,
   });
+
+  let feeHash: string | undefined;
+  // 2) Platform fee to treasury (real on-chain payment to admin)
+  if (platformFeeValue > 0n && treasury) {
+    try {
+      const feeTx = await connectedWallet.sendTransaction({
+        to: treasury,
+        value: platformFeeValue,
+      });
+      feeHash = feeTx.hash;
+    } catch (e) {
+      console.error('Platform fee transfer failed (main transfer already sent):', e);
+      // Main transfer already succeeded — surface fee failure without reverting user send
+    }
+  }
 
   return {
     hash: tx.hash,
+    feeHash,
     wait: () => tx.wait(),
   };
 }

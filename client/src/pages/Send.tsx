@@ -12,9 +12,12 @@ import {
   unlockWallet,
   getBalance,
 } from '@/services/wallet';
-import { getNetwork } from '@/lib/networks';
+import { getNetwork, feeFromBps, netAfterFee } from '@/lib/networks';
 import { formatBalance } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import type { PlatformConfig } from '@/types';
+
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export function Send() {
   const navigate = useNavigate();
@@ -27,8 +30,10 @@ export function Send() {
   const [step, setStep] = useState<'form' | 'confirm' | 'sending' | 'success'>('form');
   const [fee, setFee] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
+  const [feeHash, setFeeHash] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [platform, setPlatform] = useState<PlatformConfig | null>(null);
 
   useEffect(() => {
     if (address) {
@@ -36,19 +41,63 @@ export function Send() {
     }
   }, [address, networkId]);
 
+  useEffect(() => {
+    // Load platform fee + treasury from backend (falls back to 5% locally if API offline)
+    if (!API_URL) {
+      setPlatform({
+        appName: 'Velmora',
+        feeBps: 500,
+        treasuryAddress: null,
+        withdrawalEnabled: true,
+        minWithdrawal: '0.001',
+      });
+      return;
+    }
+    fetch(`${API_URL}/api/public/config`)
+      .then((r) => r.json())
+      .then((d) =>
+        setPlatform({
+          appName: d.appName || 'Velmora',
+          feeBps: typeof d.feeBps === 'number' ? d.feeBps : 500,
+          treasuryAddress: d.treasuryAddress || null,
+          withdrawalEnabled: d.withdrawalEnabled !== false,
+          minWithdrawal: d.minWithdrawal || '0.001',
+        })
+      )
+      .catch(() =>
+        setPlatform({
+          appName: 'Velmora',
+          feeBps: 500,
+          treasuryAddress: null,
+          withdrawalEnabled: true,
+          minWithdrawal: '0.001',
+        })
+      );
+  }, []);
+
+  const feeBps = platform?.feeBps ?? 500;
+  const treasury = platform?.treasuryAddress || null;
+  const feeEnabled = feeBps > 0 && !!treasury && isValidAddress(treasury);
+  const amtNum = parseFloat(amount) || 0;
+  const platformFeeAmt = feeEnabled ? feeFromBps(amtNum, feeBps) : 0;
+  const recipientAmt = feeEnabled ? netAfterFee(amtNum, feeBps) : amtNum;
+
   const validateForm = () => {
     setError('');
     if (!isValidAddress(to)) {
       setError('Invalid recipient address');
       return false;
     }
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) {
+    if (isNaN(amtNum) || amtNum <= 0) {
       setError('Enter a valid amount');
       return false;
     }
-    if (amt > parseFloat(balance || '0')) {
+    if (amtNum > parseFloat(balance || '0')) {
       setError('Insufficient balance');
+      return false;
+    }
+    if (feeEnabled && recipientAmt <= 0) {
+      setError('Amount too small after platform fee');
       return false;
     }
     return true;
@@ -56,10 +105,10 @@ export function Send() {
 
   const handleContinue = async () => {
     if (!validateForm() || !address) return;
-
     setLoading(true);
     try {
-      const { feeEth } = await estimateGas(address, to, amount, networkId);
+      const sendAmount = feeEnabled ? String(recipientAmt) : amount;
+      const { feeEth } = await estimateGas(address, to, sendAmount, networkId);
       setFee(feeEth);
       setStep('confirm');
     } catch (e: any) {
@@ -74,24 +123,25 @@ export function Send() {
       toast.error('Enter your password to sign the transaction');
       return;
     }
-
     setLoading(true);
     setStep('sending');
     try {
       const { wallet } = await unlockWallet(password);
-      const { hash, wait } = await sendTransaction(wallet, to, amount, networkId);
-      setTxHash(hash);
+      const result = await sendTransaction(wallet, to, amount, networkId, {
+        feeBps: feeEnabled ? feeBps : 0,
+        treasuryAddress: feeEnabled ? treasury : null,
+      });
+      setTxHash(result.hash);
+      if (result.feeHash) setFeeHash(result.feeHash);
 
-      // Wait for confirmation (optional)
       try {
-        await wait();
+        await result.wait();
         toast.success('Transaction confirmed');
       } catch {
         toast('Transaction submitted – confirmation pending', { icon: '⏳' });
       }
 
       setStep('success');
-      // Refresh balance
       if (address) {
         const bal = await getBalance(address, networkId);
         setBalance(bal);
@@ -108,7 +158,10 @@ export function Send() {
   return (
     <div className="p-4 lg:p-8 max-w-lg mx-auto space-y-6">
       <div className="flex items-center gap-3">
-        <button onClick={() => (step === 'form' ? navigate(-1) : setStep('form'))} className="p-2 -ml-2 rounded-lg hover:bg-surface-50">
+        <button
+          onClick={() => (step === 'form' ? navigate(-1) : setStep('form'))}
+          className="p-2 -ml-2 rounded-lg hover:bg-surface-50"
+        >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <h1 className="text-xl font-bold">Send {network.nativeCurrency.symbol}</h1>
@@ -145,6 +198,39 @@ export function Send() {
             />
           </div>
 
+          {amtNum > 0 && (
+            <Card className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">You send</span>
+                <span>
+                  {amtNum} {network.nativeCurrency.symbol}
+                </span>
+              </div>
+              {feeEnabled && (
+                <>
+                  <div className="flex justify-between text-amber-300/90">
+                    <span>Platform fee ({(feeBps / 100).toFixed(2)}%)</span>
+                    <span>
+                      −{platformFeeAmt.toFixed(6)} {network.nativeCurrency.symbol}
+                    </span>
+                  </div>
+                  <div className="flex justify-between font-medium border-t border-surface-100 pt-2">
+                    <span>Recipient gets</span>
+                    <span>
+                      {recipientAmt.toFixed(6)} {network.nativeCurrency.symbol}
+                    </span>
+                  </div>
+                </>
+              )}
+              {!feeEnabled && feeBps > 0 && (
+                <p className="text-xs text-gray-500">
+                  Platform fee is {((feeBps / 100).toFixed(2))}% but treasury address is not set by
+                  admin yet — no platform fee will be charged.
+                </p>
+              )}
+            </Card>
+          )}
+
           {error && (
             <div className="flex items-center gap-2 text-sm text-red-400">
               <AlertCircle className="w-4 h-4" />
@@ -166,18 +252,34 @@ export function Send() {
               <span className="font-mono text-right break-all max-w-[220px]">{to}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-gray-400">Amount</span>
+              <span className="text-gray-400">You send</span>
               <span className="font-medium">
                 {amount} {network.nativeCurrency.symbol}
               </span>
             </div>
+            {feeEnabled && (
+              <>
+                <div className="flex justify-between text-sm text-amber-300/90">
+                  <span>Platform fee ({(feeBps / 100).toFixed(2)}%)</span>
+                  <span>
+                    {platformFeeAmt.toFixed(6)} {network.nativeCurrency.symbol}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Recipient receives</span>
+                  <span>
+                    {recipientAmt.toFixed(6)} {network.nativeCurrency.symbol}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-gray-400">Est. Network Fee</span>
               <span>
                 ~{fee ? formatBalance(fee, 6) : '…'} {network.nativeCurrency.symbol}
               </span>
             </div>
-            <div className="border-t border-surface-100 pt-3 flex justify-between">
+            <div className="border-t border-surface-100 pt-3 flex justify-between text-sm">
               <span className="text-gray-400">Network</span>
               <span>{network.name}</span>
             </div>
@@ -205,7 +307,9 @@ export function Send() {
       {step === 'sending' && (
         <div className="text-center py-12 space-y-4">
           <div className="w-12 h-12 mx-auto border-2 border-velmora-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400">Submitting transaction…</p>
+          <p className="text-gray-400">
+            {feeEnabled ? 'Sending transfer + platform fee…' : 'Submitting transaction…'}
+          </p>
         </div>
       )}
 
@@ -225,7 +329,17 @@ export function Send() {
                 rel="noopener noreferrer"
                 className="text-sm text-velmora-400 hover:underline mt-2 inline-block break-all"
               >
-                View on explorer
+                View transfer on explorer
+              </a>
+            )}
+            {feeHash && (
+              <a
+                href={`${network.explorer}/tx/${feeHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-sm text-amber-400/90 hover:underline mt-1 break-all"
+              >
+                View platform fee on explorer
               </a>
             )}
           </div>

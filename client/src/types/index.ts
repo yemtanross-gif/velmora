@@ -1,4 +1,4 @@
-export type NetworkId = 'sepolia' | 'ethereum' | 'polygon';
+export type NetworkId = 'sepolia' | 'ethereum' | 'polygon' | 'bitcoin';
 
 export interface Network {
   id: NetworkId;
@@ -18,7 +18,7 @@ export interface Asset {
   symbol: string;
   name: string;
   decimals: number;
-  address?: string; // undefined for native
+  address?: string;
   logo?: string;
   networkId: NetworkId;
 }
@@ -34,7 +34,6 @@ export interface WalletState {
   address: string | null;
   networkId: NetworkId;
   accounts: WalletAccount[];
-  // Encrypted mnemonic is stored separately in localStorage under a key derived from password
 }
 
 export interface Transaction {
@@ -43,7 +42,7 @@ export interface Transaction {
   to: string;
   value: string;
   symbol: string;
-  type: 'send' | 'receive' | 'swap' | 'contract';
+  type: 'send' | 'receive' | 'swap' | 'contract' | 'fee';
   status: 'pending' | 'confirmed' | 'failed';
   timestamp: number;
   networkId: NetworkId;
@@ -55,4 +54,12 @@ export interface UserProfile {
   email: string;
   name?: string;
   createdAt: string;
+}
+
+export interface PlatformConfig {
+  appName: string;
+  feeBps: number;
+  treasuryAddress: string | null;
+  withdrawalEnabled: boolean;
+  minWithdrawal: string;
 }

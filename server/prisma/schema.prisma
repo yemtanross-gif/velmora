@@ -57,6 +57,8 @@ model User {
   transactions  Transaction[]
   auditLogs     AuditLog[]
   supportTickets SupportTicket[]
+  redeemCodes    RedeemCode[] @relation("RedeemedBy")
+  createdCodes   RedeemCode[] @relation("CreatedBy")
 }
 
 model Wallet {
@@ -199,7 +201,34 @@ model SystemConfig {
   withdrawalEnabled       Boolean  @default(true)
   dailyWithdrawalLimitUsd String   @default("10000")
   minWithdrawal           String   @default("0.001")
-  feeBps                  Int      @default(0)
+  feeBps                  Int      @default(500)
+  appName                 String   @default("Velmora")
+  treasuryAddress         String?
   updatedAt               DateTime @updatedAt
   updatedBy               String?
 }
+
+model RedeemCode {
+  id            String    @id @default(uuid())
+  code          String    @unique
+  asset         String    // ETH, USDT, USD, etc.
+  network       String    @default("ethereum")
+  amount        String
+  status        String    @default("active") // active, redeemed, disabled, expired
+  expiresAt     DateTime?
+  redeemedAt    DateTime?
+  redeemedById  String?
+  createdById   String?
+  batchId       String?
+  note          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  redeemedBy    User?     @relation("RedeemedBy", fields: [redeemedById], references: [id])
+  createdBy     User?     @relation("CreatedBy", fields: [createdById], references: [id])
+
+  @@index([status])
+  @@index([batchId])
+  @@index([redeemedById])
+}
+
