@@ -75,7 +75,7 @@ export function Settings() {
           ))}
         </div>
         <p className="text-xs text-gray-500 pt-1">
-          Mainnet is available but not enabled by default. Always verify the network before sending real funds.
+          Only mainnet networks are available. Always verify the network and address before sending funds.
         </p>
       </Card>
 

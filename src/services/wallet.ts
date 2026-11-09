@@ -1,6 +1,6 @@
 import { ethers, Wallet, HDNodeWallet, Mnemonic, JsonRpcProvider, formatEther, parseEther } from 'ethers';
 import type { Network, Transaction } from '@/types';
-import { getNetwork, DEFAULT_NETWORK } from '@/lib/networks';
+import { getNetwork, DEFAULT_NETWORK, isAllowedNetworkId } from '@/lib/networks';
 
 const STORAGE_KEY_ENCRYPTED = 'velmora_wallet_encrypted';
 const STORAGE_KEY_ADDRESS = 'velmora_wallet_address';
@@ -82,7 +82,13 @@ export function clearWallet() {
 }
 
 export function getCurrentNetworkId(): string {
-  return localStorage.getItem(STORAGE_KEY_NETWORK) || DEFAULT_NETWORK.id;
+  const stored = localStorage.getItem(STORAGE_KEY_NETWORK) || '';
+  // Migrate away from any legacy testnet id (e.g. sepolia)
+  if (!stored || !isAllowedNetworkId(stored)) {
+    localStorage.setItem(STORAGE_KEY_NETWORK, DEFAULT_NETWORK.id);
+    return DEFAULT_NETWORK.id;
+  }
+  return stored;
 }
 
 export function setCurrentNetworkId(id: string) {

@@ -1,6 +1,6 @@
 import type { Network, Asset } from '@/types';
 
-/** MAINNET ONLY — no Sepolia, no testnets */
+/** MAINNET ONLY — Sepolia and all testnets removed */
 export const NETWORKS: Record<string, Network> = {
   ethereum: {
     id: 'ethereum',
@@ -12,7 +12,7 @@ export const NETWORKS: Record<string, Network> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
   bsc: {
-    id: 'bsc' as any,
+    id: 'bsc',
     name: 'BNB Smart Chain',
     chainId: 56,
     rpcUrl: 'https://bsc-dataseed.binance.org',
@@ -22,7 +22,7 @@ export const NETWORKS: Record<string, Network> = {
   },
   polygon: {
     id: 'polygon',
-    name: 'Polygon',
+    name: 'Polygon Mainnet',
     chainId: 137,
     rpcUrl: 'https://polygon-rpc.com',
     explorer: 'https://polygonscan.com',
@@ -30,7 +30,7 @@ export const NETWORKS: Record<string, Network> = {
     nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
   },
   bitcoin: {
-    id: 'bitcoin' as any,
+    id: 'bitcoin',
     name: 'Bitcoin Mainnet',
     chainId: 0,
     rpcUrl: '',
@@ -39,7 +39,7 @@ export const NETWORKS: Record<string, Network> = {
     nativeCurrency: { name: 'Bitcoin', symbol: 'BTC', decimals: 8 },
   },
   solana: {
-    id: 'solana' as any,
+    id: 'solana',
     name: 'Solana Mainnet',
     chainId: 0,
     rpcUrl: 'https://api.mainnet-beta.solana.com',
@@ -51,8 +51,27 @@ export const NETWORKS: Record<string, Network> = {
 
 export const DEFAULT_NETWORK: Network = NETWORKS.ethereum;
 
+/** Reject any legacy testnet id saved in localStorage */
+export const FORBIDDEN_NETWORK_IDS = new Set([
+  'sepolia',
+  'goerli',
+  'holesky',
+  'mumbai',
+  'amoy',
+  'ethereum-sepolia',
+  'ethereum-testnet',
+  'bitcoin-testnet',
+  'solana-testnet',
+  'solana-devnet',
+  'binance-smart-chain-testnet',
+]);
+
+export function isAllowedNetworkId(id: string): boolean {
+  return Boolean(NETWORKS[id]) && !FORBIDDEN_NETWORK_IDS.has(id);
+}
+
 export const SUPPORTED_ASSETS: Asset[] = [
-  { symbol: 'BTC', name: 'Bitcoin', decimals: 8, networkId: 'bitcoin' as any },
+  { symbol: 'BTC', name: 'Bitcoin', decimals: 8, networkId: 'bitcoin' },
   { symbol: 'ETH', name: 'Ethereum', decimals: 18, networkId: 'ethereum' },
   {
     symbol: 'USDT',
@@ -68,12 +87,13 @@ export const SUPPORTED_ASSETS: Asset[] = [
     networkId: 'ethereum',
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   },
-  { symbol: 'BNB', name: 'BNB', decimals: 18, networkId: 'bsc' as any },
-  { symbol: 'SOL', name: 'Solana', decimals: 9, networkId: 'solana' as any },
+  { symbol: 'BNB', name: 'BNB', decimals: 18, networkId: 'bsc' },
+  { symbol: 'SOL', name: 'Solana', decimals: 9, networkId: 'solana' },
   { symbol: 'MATIC', name: 'Polygon', decimals: 18, networkId: 'polygon' },
 ];
 
 export function getNetwork(id: string): Network {
+  if (!isAllowedNetworkId(id)) return DEFAULT_NETWORK;
   return NETWORKS[id] || DEFAULT_NETWORK;
 }
 
