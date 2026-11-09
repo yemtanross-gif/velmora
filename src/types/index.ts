@@ -1,4 +1,4 @@
-export type NetworkId = 'sepolia' | 'ethereum' | 'polygon' | 'bitcoin';
+export type NetworkId = 'ethereum' | 'polygon' | 'bsc' | 'bitcoin' | 'solana';
 
 export interface Network {
   id: NetworkId;

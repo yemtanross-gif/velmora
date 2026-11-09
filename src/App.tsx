@@ -14,6 +14,7 @@ import { Swap } from '@/pages/Swap';
 import { Buy } from '@/pages/Buy';
 import { Redeem } from '@/pages/Redeem';
 import { AddWallet } from '@/pages/AddWallet';
+import { ConnectWallet } from '@/pages/ConnectWallet';
 import { useWalletStore } from '@/store/walletStore';
 import { hasWallet } from '@/services/wallet';
 
@@ -64,6 +65,7 @@ export default function App() {
           <Route path="/buy" element={<Buy />} />
           <Route path="/redeem" element={<Redeem />} />
           <Route path="/add-wallet" element={<AddWallet />} />
+          <Route path="/connect-wallet" element={<ConnectWallet />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

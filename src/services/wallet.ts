@@ -11,7 +11,7 @@ const STORAGE_KEY_NETWORK = 'velmora_network';
  * - Generates BIP-39 mnemonics and HD wallets (ethers.js)
  * - Encrypts mnemonic with user password using ethers Wallet.encrypt (scrypt)
  * - Never sends private keys or mnemonic to any backend
- * - Uses Sepolia testnet by default
+ * - Uses Ethereum mainnet by default for EVM self-custody
  */
 
 export async function generateMnemonic(): Promise<string> {
@@ -226,7 +226,7 @@ export async function getRecentTransactions(
   // For a production wallet you would use an indexer (Etherscan API, Alchemy, etc.)
   // Here we return an empty list by default and note the limitation.
   // Real implementation would call:
-  // https://api-sepolia.etherscan.io/api?module=account&action=txlist&address=...
+  // https://api-ethereum.etherscan.io/api?module=account&action=txlist&address=...
   console.info('Transaction history requires an indexer API key (Etherscan / Alchemy). Returning empty for now.');
   return [];
 }

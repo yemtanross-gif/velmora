@@ -21,7 +21,7 @@ interface WalletStore {
 export const useWalletStore = create<WalletStore>((set) => ({
   isUnlocked: false,
   address: getStoredAddress(),
-  networkId: (getCurrentNetworkId() as NetworkId) || 'sepolia',
+  networkId: (getCurrentNetworkId() as NetworkId) || 'ethereum',
   hasWallet: hasWallet(),
   balance: '0',
   isLoadingBalance: false,
@@ -43,7 +43,7 @@ export const useWalletStore = create<WalletStore>((set) => ({
     set({
       address: getStoredAddress(),
       hasWallet: hasWallet(),
-      networkId: (getCurrentNetworkId() as NetworkId) || 'sepolia',
+      networkId: (getCurrentNetworkId() as NetworkId) || 'ethereum',
     }),
 
   logout: () =>

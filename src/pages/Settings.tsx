@@ -82,9 +82,9 @@ export function Settings() {
 
       <Card className="space-y-3">
         <p className="text-xs text-gray-500 uppercase tracking-wider">Wallets</p>
-        <Link to="/add-wallet">
+        <Link to="/connect-wallet">
           <Button variant="secondary" className="w-full justify-start">
-            Add existing wallet (watch / MetaMask / import)
+            Connect existing wallet (MetaMask, Trust, Phantom…)
           </Button>
         </Link>
       </Card>

@@ -1,15 +1,7 @@
 import type { Network, Asset } from '@/types';
 
+/** MAINNET ONLY — no Sepolia, no testnets */
 export const NETWORKS: Record<string, Network> = {
-  sepolia: {
-    id: 'sepolia',
-    name: 'Ethereum Sepolia',
-    chainId: 11155111,
-    rpcUrl: 'https://rpc.sepolia.org',
-    explorer: 'https://sepolia.etherscan.io',
-    isTestnet: true,
-    nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
-  },
   ethereum: {
     id: 'ethereum',
     name: 'Ethereum Mainnet',
@@ -18,6 +10,15 @@ export const NETWORKS: Record<string, Network> = {
     explorer: 'https://etherscan.io',
     isTestnet: false,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  bsc: {
+    id: 'bsc' as any,
+    name: 'BNB Smart Chain',
+    chainId: 56,
+    rpcUrl: 'https://bsc-dataseed.binance.org',
+    explorer: 'https://bscscan.com',
+    isTestnet: false,
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   },
   polygon: {
     id: 'polygon',
@@ -28,15 +29,31 @@ export const NETWORKS: Record<string, Network> = {
     isTestnet: false,
     nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
   },
+  bitcoin: {
+    id: 'bitcoin' as any,
+    name: 'Bitcoin Mainnet',
+    chainId: 0,
+    rpcUrl: '',
+    explorer: 'https://mempool.space',
+    isTestnet: false,
+    nativeCurrency: { name: 'Bitcoin', symbol: 'BTC', decimals: 8 },
+  },
+  solana: {
+    id: 'solana' as any,
+    name: 'Solana Mainnet',
+    chainId: 0,
+    rpcUrl: 'https://api.mainnet-beta.solana.com',
+    explorer: 'https://solscan.io',
+    isTestnet: false,
+    nativeCurrency: { name: 'Solana', symbol: 'SOL', decimals: 9 },
+  },
 };
 
-export const DEFAULT_NETWORK: Network = NETWORKS.sepolia;
+export const DEFAULT_NETWORK: Network = NETWORKS.ethereum;
 
-/** Assets the UI can display. Native sends work for ETH/MATIC. Tokens need contracts. BTC is custodial-only. */
 export const SUPPORTED_ASSETS: Asset[] = [
-  { symbol: 'ETH', name: 'Ethereum', decimals: 18, networkId: 'sepolia' },
+  { symbol: 'BTC', name: 'Bitcoin', decimals: 8, networkId: 'bitcoin' as any },
   { symbol: 'ETH', name: 'Ethereum', decimals: 18, networkId: 'ethereum' },
-  { symbol: 'MATIC', name: 'Polygon', decimals: 18, networkId: 'polygon' },
   {
     symbol: 'USDT',
     name: 'Tether USD',
@@ -51,12 +68,9 @@ export const SUPPORTED_ASSETS: Asset[] = [
     networkId: 'ethereum',
     address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
   },
-  {
-    symbol: 'BTC',
-    name: 'Bitcoin',
-    decimals: 8,
-    networkId: 'bitcoin' as any,
-  },
+  { symbol: 'BNB', name: 'BNB', decimals: 18, networkId: 'bsc' as any },
+  { symbol: 'SOL', name: 'Solana', decimals: 9, networkId: 'solana' as any },
+  { symbol: 'MATIC', name: 'Polygon', decimals: 18, networkId: 'polygon' },
 ];
 
 export function getNetwork(id: string): Network {
@@ -64,10 +78,9 @@ export function getNetwork(id: string): Network {
 }
 
 export function getAssetsForNetwork(networkId: string): Asset[] {
-  return SUPPORTED_ASSETS.filter((a) => a.networkId === networkId || (a.symbol === 'BTC' && networkId === 'bitcoin'));
+  return SUPPORTED_ASSETS.filter((a) => a.networkId === networkId);
 }
 
-/** Platform fee helpers (basis points → percent) */
 export function feeFromBps(amount: number, bps: number): number {
   return (amount * bps) / 10000;
 }

@@ -29,8 +29,8 @@ export function Welcome() {
           <div className="flex items-start gap-3 p-4 rounded-2xl bg-surface-50 border border-surface-100">
             <Zap className="w-5 h-5 text-velmora-400 mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium text-sm">Sepolia Testnet ready</p>
-              <p className="text-xs text-gray-500 mt-0.5">Real on-chain transactions on Ethereum Sepolia.</p>
+              <p className="font-medium text-sm">Mainnet ready</p>
+              <p className="text-xs text-gray-500 mt-0.5">Real mainnet networks — BTC, ETH, USDT, and more via Velmora + Xellar.</p>
             </div>
           </div>
         </div>
